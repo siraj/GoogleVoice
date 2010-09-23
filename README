@@ -1,0 +1,15 @@
+I wrote this basically because I wanted to be able to send/recv SMS's from my C++ programs.
+Unfortunately, all of the APIs for Google Voice that I've seen out there are either in PHP or Perl
+or some other crap.  Hopefully someone else will find this C++ API useful.
+
+It is far from finished or pretty, but I plan to take it fairly far (be able to check for msgs, make
+voice calls, turn this into an actual library [libgooglevoice?], etc).
+
+To use it simply replace the gv.Login() arguments with your own Google login and password and set the
+proper arguments for gv.SendSMS().  Run make and execute.  That's it.
+
+Note: This relies on libcurl (Im using libcurl4-gnutls-dev) and Boost's Regex library (libboost-regex1.40.0).
+Im sure that this will work with other versions and I will try to make this as portable as possible in the future.
+
+-- MM. 100923 19:39.
+
