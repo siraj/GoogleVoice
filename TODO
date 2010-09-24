@@ -1,5 +1,6 @@
+- Add better error-checking (eg: the phone number is 10 numeric digits, etc).
 - Find a way to have the user enter their password just ONCE and store just a Google token of it or encrypt it somehow.
-
+- Update README file.
 
 
 Misc Reference Links:

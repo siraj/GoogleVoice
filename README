@@ -1,15 +1,25 @@
+*** THE WHY ***
 I wrote this basically because I wanted to be able to send/recv SMS's from my C++ programs.
 Unfortunately, all of the APIs for Google Voice that I've seen out there are either in PHP or Perl
 or some other crap.  Hopefully someone else will find this C++ API useful.
 
-It is far from finished or pretty, but I plan to take it fairly far (be able to check for msgs, make
-voice calls, turn this into an actual library [libgooglevoice?], etc).
+It is far from finished or pretty, but I plan to take it fairly far (be able to check for msgs,
+make voice calls, turn this into an actual library [libgooglevoice?], etc).
 
-To use it simply replace the gv.Login() arguments with your own Google login and password and set the
-proper arguments for gv.SendSMS().  Run make and execute.  That's it.
+*** REQUIREMENTS ***
+Im going to assume you've successfully compiled something before on your box using GNU's make...
+This program needs just g++, make, and two non-standard libraries (libcurl and libboost-regex).
+If you have them, great!  If not, they are very easy to find and install.  If you are running a
+Ubuntu-flavor: "sudo apt-get install libcurl4-gnutls-dev libboost-regex1.40" and you are set!
 
-Note: This relies on libcurl (Im using libcurl4-gnutls-dev) and Boost's Regex library (libboost-regex1.40.0).
-Im sure that this will work with other versions and I will try to make this as portable as possible in the future.
+*** HOW TO BUILD / HOW TO USE ***
+Okay, this is the hard part: just type make.  Thats it.  You'll end up with a 'gvapi' binary and
+that's all you to use it. An example:
 
--- MM. 100923 19:39.
+	./gvapi -u coolguser -p mygmailsecret -n 5552020023 -m 'Hey, I can text from the CLI!'
 
+Later, when I get some actual sleep, I'll write a more detailed guide for those who are not running
+Ubuntu (or some variant) and for those who want to use it for it's intended purpose --as a C/C++
+library that can be easily linked to your existing code.
+
+-- MM.  100924 04:30.
