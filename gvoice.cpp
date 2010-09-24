@@ -1,60 +1,21 @@
-// GoogleVoice API. v0.0.1.
+// GoogleVoice API.  Created by mm_202.  http://github.com/mastermind202/GoogleVoice
+#define GV_VERSION "v0.0.4"
 #include <iostream>
-#include <string>
-#include <curl/curl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <boost/regex.hpp>
+#include "gvoice.h"
 
 using namespace std;
 using namespace boost;
 
-// http://curl.haxx.se/libcurl/
-// http://adriel.dynalias.com/blog/?p=252
+GoogleVoice::GoogleVoice()		{hcurl=NULL; loggedin=0; debug=0; version=GV_VERSION;}
+GoogleVoice::~GoogleVoice()		{if(hcurl) curl_easy_cleanup(hcurl);}
 
-class GoogleVoice {
-public:
-	CURL *hcurl;
-	CURLcode cr;
-
-	char errorbuf[CURL_ERROR_SIZE];
-	string curlbuf;
-	
-	string login,password;
-	string galx, rnr_se;
-	int loggedin;
-	
-	GoogleVoice()	{loggedin=0;}
-	~GoogleVoice()	{if(hcurl) curl_easy_cleanup(hcurl);}
-	
-	int Init(void);
-	int Login(string login, string password);
-	int SendSMS(string number, string msg);
-	
-	static int CurlWriter(char *data, size_t size, size_t nmemb, string *buffer);
-};
-
-GoogleVoice gv;
-
-int main(int argc, char *argv[])
-{
-	int r;
-
-	if(gv.Init()) {printf("cURL failed to initalize! Dying.\n"); return -1;}
-	
-	r = gv.Login("mygmailemail", "mygmailpasswd");
-	printf("gv.Login() returned %d.\n\n", r);
-	
-	r = gv.SendSMS("5552026202", "Hi Everyone!");
-	printf("gv.SendSMS() returned %d.\n\n", r);
-		
-	printf("Done.\n\n");
-	
-	return 0;
-}
 int GoogleVoice::SendSMS(string number, string msg)
 {
-	//if(GoogleVoice::Login()) return -1;
+	if(!hcurl) {cout << "hcurl is NULL.  Did you forget to call Init()?\n"; return -1;}
+	if(Login()) return -1;
 
 	curl_easy_setopt(hcurl, CURLOPT_URL, "https://www.google.com/voice/sms/send/");
 	curl_easy_setopt(hcurl, CURLOPT_POST, 1);
@@ -67,16 +28,67 @@ int GoogleVoice::SendSMS(string number, string msg)
 	curlbuf.clear(); cr=curl_easy_perform(hcurl);
 	if(cr!=CURLE_OK) {cout << "curl() error on sending sms: " << errorbuf << endl; return -3;}
 	
-	cout << "\n\nSendSMS raw result: [" << curlbuf << "]\n\n";
+	if(debug&2) cout << "\nSendSMS curlbuf: [" << curlbuf << "]\n";
 
-	return 0;
+	regex rexp("\"data\":\\{\"code\":(\\d+)\\}"); cmatch m;
+	if(regex_search(curlbuf.c_str(), m, rexp)) {string t=m[1]; return atoi(t.c_str());}
+	else {cout << "Something went wrong.  Enable debugging.\n"; return -1;}
+	
+	return -1;
 }
-int GoogleVoice::CurlWriter(char *data, size_t size, size_t nmemb, string *buffer)
+
+int GoogleVoice::Login(string email, string passwd)
 {
-	if(buffer!=NULL)
+	if(email.length()<1 || email.length()<1) return -1;
+	this->email=email; this->passwd=passwd;
+	return Login();
+}
+
+int GoogleVoice::Login(void)
+{
+	if(!hcurl) {cout << "hcurl is NULL.  Did you forget to call Init()?\n"; return -1;}
+	if(loggedin) return 0;
+
+	regex rexp; cmatch m;
+	string post, galx;
+
+	// Get GLAX token.
+	curl_easy_setopt(hcurl, CURLOPT_URL, "https://www.google.com/accounts/ServiceLogin?passive=true&service=grandcentral");
+	curlbuf.clear(); cr=curl_easy_perform(hcurl);
+	if(cr!=CURLE_OK) {cout << "curl() Error: " << errorbuf << endl; return -1;}
+
+	rexp = "name=\"GALX\"\\s*value=\"([^\"]+)\"";
+	if(regex_search(curlbuf.c_str(), m, rexp)) 
+	{ 
+		galx=m[1];
+		if(debug&1) cout << "Got GALX session token: " << galx << endl;
+
+	} else {cout << "Failed to find GALX token.\n"; return -2;}
+
+	// Login and get rnr_se token.
+	curl_easy_setopt(hcurl, CURLOPT_URL, "https://www.google.com/accounts/ServiceLoginAuth?service=grandcentral");
+	curl_easy_setopt(hcurl, CURLOPT_POST, 1);
+	post  = "Email="+email;
+	post += "&Passwd="+passwd;
+	post += "&continue=https://www.google.com/voice/account/signin";
+	post += "&service=grandcentral&GALX="+galx;
+	curl_easy_setopt(hcurl, CURLOPT_POSTFIELDS, post.c_str());	// TODO: check this and make sure it doesnt hold on to passed data ptr.
+	curlbuf.clear(); cr=curl_easy_perform(hcurl);
+	if(cr!=CURLE_OK) {cout << "curl() Error: " << errorbuf << endl; return -3;}
+
+	if(debug&2) cout << "\nLogin() curlbuf: [" << curlbuf << "]\n";
+
+	rexp = "name=\"_rnr_se\".*?value=\"(.*?)\"";
+	if(regex_search(curlbuf.c_str(), m, rexp)) 
+	{ 
+		rnr_se=m[1]; loggedin=1;
+		if(debug&1) cout << "Got rnr_se session token: " << rnr_se << endl;
+	}
+	else
 	{
-		buffer->append(data, size*nmemb);
-		return size*nmemb;
+		cout << "Failed to find rnr_se token. (Most likely a bad/mistyped email/passwd)\n";
+		loggedin=0;
+		return -2;
 	}
 	return 0;
 }
@@ -96,56 +108,9 @@ int GoogleVoice::Init(void)
 	return 0;
 }
 
-int GoogleVoice::Login(string login, string passwd)
+int GoogleVoice::CurlWriter(char *data, size_t size, size_t nmemb, string *buffer)
 {
-	if(loggedin) return 0;
-
-	regex rexp; cmatch m;
-	string data;
-	int i;
-
-	// Get GLAX token.
-	curl_easy_setopt(hcurl, CURLOPT_URL, "https://www.google.com/accounts/ServiceLogin?passive=true&service=grandcentral");
-	curlbuf.clear(); cr=curl_easy_perform(hcurl);
-	if(cr!=CURLE_OK) {cout << "curl() Error: " << errorbuf << endl; return -1;}
-
-	rexp = "name=\"GALX\"\\s*value=\"([^\"]+)\"";
-	if(regex_search(curlbuf.c_str(), m, rexp)) 
-	{ 
-		if(m.size()==2) galx=m[1];
-		cout << "Got GALX session token: " << galx << endl;
-		/*if(m.size()>0) cout << "m[0].f=[" << m[0] << "]\n";
-		if(m.size()>1) cout << "m[1].f=[" << m[1] << "]\n";
-		if(m.size()>2) cout << "m[2].f=[" << m[2] << "]\n";*/
-	} else {cout << "Failed to find GALX token.\n"; return -2;}
-
-	// Login and get rnr_se token.
-	curl_easy_setopt(hcurl, CURLOPT_URL, "https://www.google.com/accounts/ServiceLoginAuth?service=grandcentral");
-	curl_easy_setopt(hcurl, CURLOPT_POST, 1);
-	data  = "Email="+login;
-	data += "&Passwd="+passwd;
-	data += "&continue=https://www.google.com/voice/account/signin";
-	data += "&service=grandcentral";
-	data += "&GALX="+galx;
-	curl_easy_setopt(hcurl, CURLOPT_POSTFIELDS, data.c_str());	// TODO: check this and make sure it doesnt hold on to passed data ptr.
-	curlbuf.clear(); cr=curl_easy_perform(hcurl);
-	if(cr!=CURLE_OK) {cout << "curl() Error: " << errorbuf << endl; return -3;}
-
-	rexp = "name=\"_rnr_se\".*?value=\"(.*?)\"";
-	if(regex_search(curlbuf.c_str(), m, rexp)) 
-	{ 
-		if(m.size()==2) {rnr_se=m[1]; loggedin=1;}
-		cout << "Got rnr_se session token: " << rnr_se << endl;
-	}
-	else
-	{
-		cout << "Failed to find rnr_se token  (login failure).\n";
-		loggedin=0;
-		return -2;
-	}
-
+	if(buffer!=NULL) {buffer->append(data, size*nmemb); return size*nmemb;}
 	return 0;
 }
-
-
 

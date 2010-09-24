@@ -1,0 +1,7 @@
+- Find a way to have the user enter their password just ONCE and store just a Google token of it or encrypt it somehow.
+
+
+
+Misc Reference Links:
+	- http://curl.haxx.se/libcurl/
+	- http://adriel.dynalias.com/blog/?p=252
